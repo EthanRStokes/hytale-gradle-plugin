@@ -27,6 +27,10 @@ hytale {
     // Auto-update manifest.json during build? (defaults to true)
     autoUpdateManifest.set(true)
     
+    // Memory configuration
+    minMemory.set("2G")
+    maxMemory.set("4G")
+
     // You can modify the default arguments or add your own
     serverArgs.add("--hello-world")
 }

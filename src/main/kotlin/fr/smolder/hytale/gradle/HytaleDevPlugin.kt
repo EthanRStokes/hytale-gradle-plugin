@@ -23,6 +23,8 @@ interface HytaleExtension {
     val loadUserMods: Property<Boolean>
     val autoUpdateManifest: Property<Boolean>
     val serverArgs: ListProperty<String>
+    val minMemory: Property<String>
+    val maxMemory: Property<String>
 }
 
 class HytaleDevPlugin : Plugin<Project> {
@@ -38,6 +40,8 @@ class HytaleDevPlugin : Plugin<Project> {
         extension.includesAssetPack.convention(true)
         extension.loadUserMods.convention(false)
         extension.autoUpdateManifest.convention(true)
+        extension.minMemory.convention("1G")
+        extension.maxMemory.convention("4G")
 
         val resolvedServerJar = project.layout.file(project.provider {
             val home = extension.hytalePath.get()
@@ -129,6 +133,8 @@ class HytaleDevPlugin : Plugin<Project> {
                if(!extension.serverJar.get().asFile.exists()) {
                    throw GradleException("Hytale Server JAR not found at: ${extension.serverJar.get().asFile.absolutePath}")
                }
+               minHeapSize = extension.minMemory.get()
+               maxHeapSize = extension.maxMemory.get()
             }
 
             argumentProviders.add(CommandLineArgumentProvider {
