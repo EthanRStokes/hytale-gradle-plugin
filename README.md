@@ -4,7 +4,7 @@
 ![Version](https://img.shields.io/badge/version-0.0.1-248cd6?labelColor=&style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-7267db.svg?style=for-the-badge)
 
-A Gradle plugin to streamline Hytale server development.
+A Gradle plugin to streamline Hytale plugin development.
 
 ## Usage
 
@@ -38,8 +38,8 @@ hytale {
     // Optional: Override Hytale installation path
     hytalePath.set("C:/Users/You/AppData/Roaming/Hytale")
 
-    // Optional: patch line (defaults to "live")
-    patchLine.set("live")
+    // Optional: patch line (defaults to "release")
+    patchLine.set("release")
 
     // Optional: game version (defaults to "latest")
     gameVersion.set("latest")
@@ -53,12 +53,18 @@ hytale {
 
     // You can modify the default arguments or add your own
     serverArgs.add("--hello-world")
+    
+    // Decompilation settings
+    vineflowerVersion.set("1.11.2")
+    decompileFilter.set(listOf("com/hypixel/**"))
+    decompilerHeapSize.set("6G")
 }
 ```
 
 ### Tasks
 - `./gradlew runServer`: Starts the Hytale server with the configured environment.
 - `./gradlew build`: Builds the project and updates the `manifest.json`.
+- `./gradlew decompileServer`: Decompiles the Hytale Server JAR and creates a `-sources.jar`.
 
 ## Contributing
 Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.

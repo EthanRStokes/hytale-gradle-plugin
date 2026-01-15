@@ -8,6 +8,7 @@ import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.Copy
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.register
 import org.gradle.api.GradleException
@@ -25,6 +26,9 @@ interface HytaleExtension {
     val serverArgs: ListProperty<String>
     val minMemory: Property<String>
     val maxMemory: Property<String>
+    val vineflowerVersion: Property<String>
+    val decompileFilter: ListProperty<String>
+    val decompilerHeapSize: Property<String>
 }
 
 class HytaleDevPlugin : Plugin<Project> {
@@ -42,6 +46,9 @@ class HytaleDevPlugin : Plugin<Project> {
         extension.autoUpdateManifest.convention(true)
         extension.minMemory.convention("1G")
         extension.maxMemory.convention("4G")
+        extension.vineflowerVersion.convention("1.11.2")
+        extension.decompileFilter.convention(listOf("com/hypixel/**"))
+        extension.decompilerHeapSize.convention("6G")
 
         val resolvedServerJar = project.layout.file(project.provider {
             val home = extension.hytalePath.get()
@@ -72,11 +79,14 @@ class HytaleDevPlugin : Plugin<Project> {
             argsList
         })
 
+        val decompiler = project.configurations.create("decompiler")
         project.afterEvaluate {
+            project.dependencies.add("decompiler", "org.vineflower:vineflower:${extension.vineflowerVersion.get()}")
             project.dependencies.add("implementation", project.files(extension.serverJar))
         }
 
         configureManifestUpdate(project, extension)
+        configureDecompileTask(project, extension, decompiler)
         configureRunTask(project, extension)
     }
 
@@ -143,6 +153,74 @@ class HytaleDevPlugin : Plugin<Project> {
             
             workingDir = serverRunDir
             standardInput = System.`in`
+        }
+    }
+
+    private fun configureDecompileTask(
+        project: Project,
+        extension: HytaleExtension,
+        decompiler: org.gradle.api.artifacts.Configuration
+    ) {
+        val tempClassesDir = project.layout.buildDirectory.dir("decompile/classes")
+        val decompiledOutputDir = project.layout.buildDirectory.dir("decompile/sources")
+
+        project.tasks.register<JavaExec>("decompileServer") {
+            group = "hytale"
+            description = "Decompiles the Hytale Server JAR using Vineflower"
+
+            classpath = decompiler
+            mainClass.set("org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler")
+
+            maxHeapSize = extension.decompilerHeapSize.get()
+            jvmArgs("-Xms2G")
+
+            doFirst {
+                val serverJar = extension.serverJar.get().asFile
+                if (!serverJar.exists()) {
+                    throw GradleException("Hytale Server JAR not found at: ${serverJar.absolutePath}")
+                }
+
+                val classesDir = tempClassesDir.get().asFile
+                val outputDir = decompiledOutputDir.get().asFile
+                
+                project.delete(classesDir)
+                project.delete(outputDir)
+                project.mkdir(classesDir)
+                project.mkdir(outputDir)
+
+                println("Extracting classes from ${serverJar.name}...")
+                project.copy {
+                    from(project.zipTree(serverJar))
+                    into(classesDir)
+                    extension.decompileFilter.get().forEach { pattern ->
+                        include(pattern)
+                    }
+                }
+
+                println("Starting decompilation...")
+
+                args = listOf(
+                    "-dgs=1", "-rsy=1", "-rbr=1", "-lit=1", "-jvn=1", "-log=ERROR",
+                    classesDir.absolutePath,
+                    outputDir.absolutePath
+                )
+            }
+
+            doLast {
+                val serverJar = extension.serverJar.get().asFile
+                val sourcesJar = File(serverJar.parentFile, serverJar.nameWithoutExtension + "-sources.jar")
+                val outputDir = decompiledOutputDir.get().asFile
+
+                println("Creating sources jar: ${sourcesJar.name}...")
+                project.ant.invokeMethod("zip", mapOf(
+                    "destfile" to sourcesJar.absolutePath,
+                    "basedir" to outputDir.absolutePath
+                ))
+
+                println("--------------------------------------------------")
+                println("Done! Sources jar created at: ${sourcesJar.absolutePath}")
+                println("--------------------------------------------------")
+            }
         }
     }
 }
