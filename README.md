@@ -36,3 +36,8 @@ hytale {
 - `./gradlew runServer`: Starts the Hytale server with the configured environment.
 - `./gradlew build`: Builds the project and updates the `manifest.json`.
 
+## Contributing
+Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
+
+## License
+This project is licensed under the MIT License.
