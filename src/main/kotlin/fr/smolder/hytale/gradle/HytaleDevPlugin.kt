@@ -20,8 +20,10 @@ interface HytaleExtension {
     val gameVersion: Property<String>
     val serverJar: RegularFileProperty
     val includesAssetPack: Property<Boolean>
+    val earlyPlugin: Property<Boolean>
     val loadUserMods: Property<Boolean>
     val autoUpdateManifest: Property<Boolean>
+    val jvmArgs: ListProperty<String>
     val serverArgs: ListProperty<String>
     val minMemory: Property<String>
     val maxMemory: Property<String>
@@ -52,6 +54,7 @@ class HytaleDevPlugin : Plugin<Project> {
         extension.patchLine.convention("release")
         extension.gameVersion.convention("latest")
         extension.includesAssetPack.convention(true)
+        extension.earlyPlugin.convention(false)
         extension.loadUserMods.convention(false)
         extension.autoUpdateManifest.convention(true)
         extension.minMemory.convention("1G")
@@ -70,6 +73,27 @@ class HytaleDevPlugin : Plugin<Project> {
         })
         extension.serverJar.convention(resolvedServerJar)
 
+        extension.jvmArgs.convention(project.provider {
+            val argsList = mutableListOf<String>()
+
+            if (extension.useAotCache.get()) {
+                val serverJar = extension.serverJar.get().asFile
+                val aotFile = File(serverJar.parentFile, "HytaleServer.aot")
+                if (aotFile.exists()) {
+                    argsList.add("-XX:AOTCache=${aotFile.absolutePath}")
+                }
+            }
+
+            if (extension.earlyPlugin.get()) {
+                val javaExtension = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
+                val mainSourceSet = javaExtension.sourceSets.getByName("main")
+
+                argsList.add("-Dhyxin-target=${mainSourceSet.output.joinToString(",")}")
+            }
+
+            argsList
+        })
+
         extension.serverArgs.convention(project.provider {
             val argsList = mutableListOf<String>()
             argsList.add("--allow-op")
@@ -84,6 +108,10 @@ class HytaleDevPlugin : Plugin<Project> {
             if (extension.includesAssetPack.get()) {
                  val srcMain = project.file("src/main")
                  argsList.add("--mods=${srcMain.absolutePath}")
+            }
+
+            if (extension.earlyPlugin.get()) {
+                argsList.add("--accept-early-plugins")
             }
 
             if (extension.loadUserMods.get()) {
@@ -163,19 +191,14 @@ class HytaleDevPlugin : Plugin<Project> {
             classpath(mainSourceSet.runtimeClasspath)
 
             doFirst {
-               if(!extension.serverJar.get().asFile.exists()) {
-                   throw GradleException("Hytale Server JAR not found at: ${extension.serverJar.get().asFile.absolutePath}")
-               }
-               minHeapSize = extension.minMemory.get()
-               maxHeapSize = extension.maxMemory.get()
-               
-               if (extension.useAotCache.get()) {
-                   val serverJar = extension.serverJar.get().asFile
-                   val aotFile = File(serverJar.parentFile, "HytaleServer.aot")
-                   if (aotFile.exists()) {
-                       jvmArgs("-XX:AOTCache=${aotFile.absolutePath}")
-                   }
-               }
+                if(!extension.serverJar.get().asFile.exists()) {
+                    throw GradleException("Hytale Server JAR not found at: ${extension.serverJar.get().asFile.absolutePath}")
+                }
+                minHeapSize = extension.minMemory.get()
+                maxHeapSize = extension.maxMemory.get()
+
+                val extraJvmArgs = extension.jvmArgs.get()
+                jvmArgs(extraJvmArgs)
             }
 
             argumentProviders.add(CommandLineArgumentProvider {
@@ -203,7 +226,7 @@ class HytaleDevPlugin : Plugin<Project> {
             mainClass.set("org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler")
 
             maxHeapSize = extension.decompilerHeapSize.get()
-            jvmArgs("-Xms2G")
+            jvmArgs(listOf("-Xms2G") + extension.jvmArgs.get())
 
             doFirst {
                 val serverJar = extension.serverJar.get().asFile
