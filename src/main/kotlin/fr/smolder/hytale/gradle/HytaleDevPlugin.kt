@@ -14,9 +14,19 @@ import org.gradle.api.GradleException
 import java.io.File
 import org.gradle.process.CommandLineArgumentProvider
 
+@JvmInline
+value class PatchLine(val value: String) {
+    companion object {
+        val RELEASE = PatchLine("release")
+        val PRE_RELEASE = PatchLine("pre-release")
+    }
+
+    override fun toString(): String = value
+}
+
 interface HytaleExtension {
     val hytalePath: Property<String>
-    val patchLine: Property<String>
+    val patchLine: Property<PatchLine>
     val gameVersion: Property<String>
     val serverJar: RegularFileProperty
     val includesAssetPack: Property<Boolean>
@@ -51,7 +61,7 @@ class HytaleDevPlugin : Plugin<Project> {
         }
         
         extension.hytalePath.convention(defaultHytaleHome)
-        extension.patchLine.convention("release")
+        extension.patchLine.convention(PatchLine.RELEASE)
         extension.gameVersion.convention("latest")
         extension.includesAssetPack.convention(true)
         extension.earlyPlugin.convention(false)
