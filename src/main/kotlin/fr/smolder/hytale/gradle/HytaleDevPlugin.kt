@@ -32,43 +32,46 @@ abstract class HytaleExtension @Inject constructor(
     
     /** Game version to use */
     abstract val gameVersion: Property<String>
-    
+
     /** Path to the server JAR */
     abstract val serverJar: RegularFileProperty
-    
+
     /** Whether the project includes an asset pack */
     abstract val includesAssetPack: Property<Boolean>
-    
+
     /** Whether to load user mods from the default mods directory */
     abstract val loadUserMods: Property<Boolean>
-    
+
     /** Whether to auto-update the manifest.json with version info */
     abstract val autoUpdateManifest: Property<Boolean>
-    
+
+    /** Arguments to pass to the JVM */
+    abstract val jvmArgs: ListProperty<String>
+
     /** Arguments to pass to the server */
     abstract val serverArgs: ListProperty<String>
-    
+
     /** Minimum memory for the server JVM */
     abstract val minMemory: Property<String>
-    
+
     /** Maximum memory for the server JVM */
     abstract val maxMemory: Property<String>
-    
+
     /** Vineflower decompiler version */
     abstract val vineflowerVersion: Property<String>
-    
+
     /** Filter patterns for decompilation */
     abstract val decompileFilter: ListProperty<String>
-    
+
     /** Heap size for the decompiler */
     abstract val decompilerHeapSize: Property<String>
 
     /** Logging level for the decompiler */
     abstract val decompilerLogLevel: Property<String>
-    
+
     /** Whether to use AOT cache for the server */
     abstract val useAotCache: Property<Boolean>
-    
+
     /** Whether to include decompiled sources in the IDE */
     abstract val includeDecompiledSources: Property<Boolean>
 
@@ -77,7 +80,7 @@ abstract class HytaleExtension @Inject constructor(
 
     // Manifest DSL support
     private var manifestDsl: ManifestDsl? = null
-    
+
     /** Access the manifest DSL configuration */
     val manifest: ManifestDsl
         get() {
@@ -86,12 +89,12 @@ abstract class HytaleExtension @Inject constructor(
             }
             return manifestDsl!!
         }
-    
+
     /** Configure the manifest using a DSL block */
     fun manifest(action: Action<ManifestDsl>) {
         action.execute(manifest)
     }
-    
+
     /** Check if manifest has been configured */
     val hasManifest: Boolean
         get() = manifestDsl != null
@@ -117,6 +120,7 @@ class HytaleDevPlugin : Plugin<Project> {
         extension.patchLine.convention(Patchline.RELEASE)
         extension.gameVersion.convention("latest")
         extension.includesAssetPack.convention(true)
+        extension.earlyPlugin.convention(false)
         extension.loadUserMods.convention(false)
         extension.autoUpdateManifest.convention(true)
         extension.minMemory.convention("1G")
@@ -136,6 +140,28 @@ class HytaleDevPlugin : Plugin<Project> {
             File("$home/install/$patch/package/game/$version/Server/HytaleServer.jar")
         })
         extension.serverJar.convention(resolvedServerJar)
+
+        extension.jvmArgs.convention(project.provider {
+            val argsList = mutableListOf<String>()
+
+            if (extension.useAotCache.get()) {
+                val serverJar = extension.serverJar.get().asFile
+                val aotFile = File(serverJar.parentFile, "HytaleServer.aot")
+                if (aotFile.exists()) {
+                    argsList.add("-XX:AOTCache=${aotFile.absolutePath}")
+                }
+            }
+
+            if (extension.earlyPlugin.get()) {
+                val javaExtension = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
+                val mainSourceSet = javaExtension.sourceSets.getByName("main")
+
+                argsList.add("-Dhyxin-target=${mainSourceSet.output.joinToString(",")}")
+            }
+
+            argsList
+        })
+
         extension.serverArgs.convention(emptyList())
 
         val decompiler = project.configurations.create("decompiler")
@@ -183,7 +209,7 @@ class HytaleDevPlugin : Plugin<Project> {
             inputs.property("main", project.provider { extension.manifest.main }).optional(true)
             inputs.property("includesAssetPack", project.provider { extension.manifest.includesAssetPack })
             inputs.property("disabledByDefault", project.provider { extension.manifest.disabledByDefault })
-            
+
             outputs.file(generatedManifest)
 
             doLast {
@@ -192,7 +218,7 @@ class HytaleDevPlugin : Plugin<Project> {
                 if (!manifest.includesAssetPackProperty.isPresent) {
                     manifest.includesAssetPack = extension.includesAssetPack.get()
                 }
-                
+
                 val errors = manifest.validate()
                 if (errors.isNotEmpty()) {
                     throw GradleException("Manifest validation failed:\n  - ${errors.joinToString("\n  - ")}")
@@ -273,55 +299,50 @@ class HytaleDevPlugin : Plugin<Project> {
             classpath(mainSourceSet.runtimeClasspath)
 
             doFirst {
-               if(!extension.serverJar.get().asFile.exists()) {
-                   throw GradleException("Hytale Server JAR not found at: ${extension.serverJar.get().asFile.absolutePath}")
-               }
+                if(!extension.serverJar.get().asFile.exists()) {
+                    throw GradleException("Hytale Server JAR not found at: ${extension.serverJar.get().asFile.absolutePath}")
+                }
 
-               val globalAuth = File(project.gradle.gradleUserHomeDir, "hytale/auth.enc")
-               val localAuth = File(serverRunDir, "auth.enc")
-               if (globalAuth.exists() && !localAuth.exists()) {
-                   globalAuth.copyTo(localAuth)
-                   println("Auto-provisioned auth.enc from global cache")
-               }
+                val globalAuth = File(project.gradle.gradleUserHomeDir, "hytale/auth.enc")
+                val localAuth = File(serverRunDir, "auth.enc")
+                if (globalAuth.exists() && !localAuth.exists()) {
+                    globalAuth.copyTo(localAuth)
+                    println("Auto-provisioned auth.enc from global cache")
+                }
 
-               // insert AuthCredentialStore section in config.json
-               if (localAuth.exists()) {
-                   val configFile = File(serverRunDir, "config.json")
-                   val authConfig = mapOf(
-                       "Type" to "Encrypted",
-                       "Path" to "auth.enc"
-                   )
+                // insert AuthCredentialStore section in config.json
+                if (localAuth.exists()) {
+                    val configFile = File(serverRunDir, "config.json")
+                    val authConfig = mapOf(
+                        "Type" to "Encrypted",
+                        "Path" to "auth.enc"
+                    )
 
-                   if (configFile.exists()) {
-                       @Suppress("UNCHECKED_CAST")
-                       val config = JsonSlurper().parseText(configFile.readText()) as MutableMap<String, Any?>
-                       val existingAuth = config["AuthCredentialStore"] as? Map<*, *>
+                    if (configFile.exists()) {
+                        @Suppress("UNCHECKED_CAST")
+                        val config = JsonSlurper().parseText(configFile.readText()) as MutableMap<String, Any?>
+                        val existingAuth = config["AuthCredentialStore"] as? Map<*, *>
 
-                       if (existingAuth == null || existingAuth["Type"] != "Encrypted") {
-                           config["AuthCredentialStore"] = authConfig
-                           configFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(config)))
-                           println("Updated config.json with AuthCredentialStore configuration")
-                       }
-                   } else {
-                       // very very very minimal config.json with auth configuration
-                       val defaultConfig = mapOf(
-                           "AuthCredentialStore" to authConfig
-                       )
-                       configFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(defaultConfig)))
-                       println("Created config.json with AuthCredentialStore configuration")
-                   }
-               }
+                        if (existingAuth == null || existingAuth["Type"] != "Encrypted") {
+                            config["AuthCredentialStore"] = authConfig
+                            configFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(config)))
+                            println("Updated config.json with AuthCredentialStore configuration")
+                        }
+                    } else {
+                        // very very very minimal config.json with auth configuration
+                        val defaultConfig = mapOf(
+                            "AuthCredentialStore" to authConfig
+                        )
+                        configFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(defaultConfig)))
+                        println("Created config.json with AuthCredentialStore configuration")
+                    }
+                }
 
-               minHeapSize = extension.minMemory.get()
-               maxHeapSize = extension.maxMemory.get()
-               
-               if (extension.useAotCache.get()) {
-                   val serverJar = extension.serverJar.get().asFile
-                   val aotFile = File(serverJar.parentFile, "HytaleServer.aot")
-                   if (aotFile.exists()) {
-                       jvmArgs("-XX:AOTCache=${aotFile.absolutePath}")
-                   }
-               }
+                minHeapSize = extension.minMemory.get()
+                maxHeapSize = extension.maxMemory.get()
+
+                val extraJvmArgs = extension.jvmArgs.get()
+                jvmArgs(extraJvmArgs)
             }
 
             argumentProviders.add(CommandLineArgumentProvider {
@@ -350,7 +371,7 @@ class HytaleDevPlugin : Plugin<Project> {
                 }
 
                 argsList.addAll(extension.serverArgs.get())
-                
+
                 argsList
             })
             
@@ -375,7 +396,7 @@ class HytaleDevPlugin : Plugin<Project> {
             mainClass.set("org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler")
 
             maxHeapSize = extension.decompilerHeapSize.get()
-            jvmArgs("-Xms2G")
+            jvmArgs(listOf("-Xms2G") + extension.jvmArgs.get())
 
             doFirst {
                 val serverJar = extension.serverJar.get().asFile
@@ -463,7 +484,7 @@ class HytaleDevPlugin : Plugin<Project> {
             }
         }
     }
-    
+
     private fun configureAuthTask(project: Project) {
         project.tasks.register("saveAuth") {
             group = "hytale"
