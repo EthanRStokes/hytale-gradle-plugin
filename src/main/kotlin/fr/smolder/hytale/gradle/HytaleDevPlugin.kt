@@ -8,7 +8,6 @@ import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.JavaExec
-import org.gradle.api.tasks.Copy
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.register
 import org.gradle.api.GradleException
@@ -100,6 +99,12 @@ class HytaleDevPlugin : Plugin<Project> {
         configureManifestUpdate(project, extension)
         configureDecompileTask(project, extension, decompiler)
         configureRunTask(project, extension)
+
+        project.pluginManager.withPlugin("java") {
+            val javaExtension = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
+            val decompiledSourcesDir = project.layout.buildDirectory.dir("decompile/sources")
+            javaExtension.sourceSets.getByName("main").java.srcDir(decompiledSourcesDir)
+        }
     }
 
     private fun configureManifestUpdate(project: Project, extension: HytaleExtension) {
