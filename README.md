@@ -1,7 +1,7 @@
 # Hytale Gradle Plugin
 ![Java](https://img.shields.io/badge/Java-orange?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Hytale](https://img.shields.io/badge/Hytale-FF7175?style=for-the-badge&logo=anycubic&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.0.1-248cd6?labelColor=&style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.0.2-248cd6?labelColor=&style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-7267db.svg?style=for-the-badge)
 
 A Gradle plugin to streamline Hytale plugin development.
@@ -26,7 +26,7 @@ In your `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("fr.smolder.hytale.dev") version "0.0.1"
+    id("fr.smolder.hytale.dev") version "0.0.2"
 }
 ```
 
@@ -51,8 +51,11 @@ hytale {
     minMemory.set("2G")
     maxMemory.set("4G")
 
-    // You can modify the default arguments or add your own
-    serverArgs.add("--hello-world")
+    // Use AOT cache for faster startup (defaults to true)
+    useAotCache.set(true)
+
+    // You can add extra server arguments
+    serverArgs.add("--your-custom-arg")
     
     // Decompilation settings
     vineflowerVersion.set("1.11.2")
@@ -62,7 +65,7 @@ hytale {
 ```
 
 ### Tasks
-- `./gradlew runServer`: Starts the Hytale server with the configured environment.
+- `./gradlew runServer`: Starts the Hytale server with your plugin loaded.
 - `./gradlew build`: Builds the project and updates the `manifest.json`.
 - `./gradlew decompileServer`: Decompiles the Hytale Server JAR and creates a `-sources.jar`.
 
