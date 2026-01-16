@@ -26,10 +26,10 @@ abstract class HytaleExtension @Inject constructor(
 ) {
     /** Path to the Hytale installation directory */
     abstract val hytalePath: Property<String>
-    
+
     /** Patch line to use */
     abstract val patchLine: Property<Patchline>
-    
+
     /** Game version to use */
     abstract val gameVersion: Property<String>
 
@@ -120,7 +120,6 @@ class HytaleDevPlugin : Plugin<Project> {
         extension.patchLine.convention(Patchline.RELEASE)
         extension.gameVersion.convention("latest")
         extension.includesAssetPack.convention(true)
-        extension.earlyPlugin.convention(false)
         extension.loadUserMods.convention(false)
         extension.autoUpdateManifest.convention(true)
         extension.minMemory.convention("1G")
