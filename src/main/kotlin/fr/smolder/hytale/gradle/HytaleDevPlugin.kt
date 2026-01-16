@@ -37,7 +37,16 @@ class HytaleDevPlugin : Plugin<Project> {
         val extension = project.extensions.create<HytaleExtension>("hytale")
 
         val userHome = System.getProperty("user.home")
-        val defaultHytaleHome = "$userHome/AppData/Roaming/Hytale"
+        val os = System.getProperty("os.name").lowercase()
+        
+        val defaultHytaleHome = when {
+            os.contains("win") -> "$userHome/AppData/Roaming/Hytale"
+            os.contains("mac") -> "$userHome/Library/Application Support/Hytale"
+            else -> {
+                val xdgData = System.getenv("XDG_DATA_HOME")
+                if (xdgData.isNullOrEmpty()) "$userHome/.local/share/Hytale" else "$xdgData/Hytale"
+            }
+        }
         
         extension.hytalePath.convention(defaultHytaleHome)
         extension.patchLine.convention("release")

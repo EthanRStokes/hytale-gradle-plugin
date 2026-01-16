@@ -35,8 +35,8 @@ Configure the plugin using the `hytale` block:
 
 ```kotlin
 hytale {
-    // Optional: Override Hytale installation path
-    hytalePath.set("C:/Users/You/AppData/Roaming/Hytale")
+    // Optional: Override Hytale installation path (defaults to OS-specific standard location)
+    // hytalePath.set("...")
 
     // Optional: patch line (defaults to "release")
     patchLine.set("release")
