@@ -1,7 +1,7 @@
 # Hytale Gradle Plugin
 ![Java](https://img.shields.io/badge/Java-orange?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Hytale](https://img.shields.io/badge/Hytale-FF7175?style=for-the-badge&logo=anycubic&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.0.5-248cd6?labelColor=&style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.0.6-248cd6?labelColor=&style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-7267db.svg?style=for-the-badge)
 
 A Gradle plugin to streamline Hytale plugin development.
