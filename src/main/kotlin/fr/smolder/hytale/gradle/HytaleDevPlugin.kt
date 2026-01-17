@@ -175,16 +175,29 @@ class HytaleDevPlugin : Plugin<Project> {
     }
 
     private fun configureManifestUpdate(project: Project, extension: HytaleExtension) {
-        val manifestFile = project.file("src/main/resources/manifest.json")
+        val generatedResourcesDir = project.layout.buildDirectory.dir("generated/resources/hytale")
+        val generatedManifest = generatedResourcesDir.map { it.file("manifest.json") }
+        val legacyManifest = project.file("src/main/resources/manifest.json")
 
         val generateTask = project.tasks.register("generateManifest") {
             group = "hytale"
             description = "Generates manifest.json from the manifest DSL configuration"
-            
-            outputs.file(manifestFile)
-            
+
             onlyIf { extension.hasManifest }
+
+            // track all inputs so Gradle knows when to regenerate
+            inputs.property("group", project.provider { extension.manifest.group })
+            inputs.property("name", project.provider { extension.manifest.name })
+            inputs.property("version", project.provider { extension.manifest.version })
+            inputs.property("description", project.provider { extension.manifest.description })
+            inputs.property("serverVersion", project.provider { extension.manifest.serverVersion })
+            inputs.property("website", project.provider { extension.manifest.website })
+            inputs.property("main", project.provider { extension.manifest.main })
+            inputs.property("includesAssetPack", project.provider { extension.manifest.includesAssetPack })
+            inputs.property("disabledByDefault", project.provider { extension.manifest.disabledByDefault })
             
+            outputs.file(generatedManifest)
+
             doLast {
                 val manifest = extension.manifest
 
@@ -196,10 +209,11 @@ class HytaleDevPlugin : Plugin<Project> {
                 if (errors.isNotEmpty()) {
                     throw GradleException("Manifest validation failed:\n  - ${errors.joinToString("\n  - ")}")
                 }
-                
-                manifestFile.parentFile?.mkdirs()
-                manifestFile.writeText(manifest.toJson())
-                println("Generated manifest.json from DSL configuration")
+
+                val outputFile = generatedManifest.get().asFile
+                outputFile.parentFile?.mkdirs()
+                outputFile.writeText(manifest.toJson())
+                println("Generated manifest.json")
             }
         }
 
@@ -210,27 +224,36 @@ class HytaleDevPlugin : Plugin<Project> {
             
             inputs.property("version", project.version)
             inputs.property("includes_pack", extension.includesAssetPack)
-            outputs.file(manifestFile)
+            outputs.file(legacyManifest)
 
-            onlyIf { 
-                extension.autoUpdateManifest.get() && !extension.hasManifest && manifestFile.exists()
+            onlyIf {
+                extension.autoUpdateManifest.get() && !extension.hasManifest && legacyManifest.exists()
             }
 
             doLast {
-                if (!manifestFile.exists()) {
-                    throw GradleException("Could not find manifest.json at ${manifestFile.path}!")
+                if (!legacyManifest.exists()) {
+                    throw GradleException("Could not find manifest.json at ${legacyManifest.path}!")
                 }
 
                 @Suppress("UNCHECKED_CAST")
-                val manifestJson = JsonSlurper().parseText(manifestFile.readText()) as MutableMap<String, Any>
+                val manifestJson = JsonSlurper().parseText(legacyManifest.readText()) as MutableMap<String, Any>
                 manifestJson["Version"] = project.version.toString()
                 manifestJson["IncludesAssetPack"] = extension.includesAssetPack.get()
 
-                manifestFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(manifestJson)))
+                legacyManifest.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(manifestJson)))
                 println("Updated manifest.json with version ${project.version}")
             }
         }
-        
+
+        // add generated resources to the source set
+        project.afterEvaluate {
+            if (extension.hasManifest) {
+                val javaExtension = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
+                val mainSourceSet = javaExtension.sourceSets.getByName("main")
+                mainSourceSet.resources.srcDir(generatedResourcesDir)
+            }
+        }
+
         project.tasks.named("processResources") {
             dependsOn(generateTask)
             dependsOn(updateTask)
