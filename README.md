@@ -26,7 +26,7 @@ In your `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("fr.smolder.hytale.dev") version "0.0.5"
+    id("fr.smolder.hytale.dev") version "0.0.6"
 }
 ```
 
@@ -69,8 +69,70 @@ hytale {
 
 ### Tasks
 - `./gradlew runServer`: Starts the Hytale server with your plugin loaded.
-- `./gradlew build`: Builds the project and updates the `manifest.json`.
+- `./gradlew build`: Builds the project and updates/generates the `manifest.json`.
+- `./gradlew generateManifest`: Generates `manifest.json` from the DSL configuration.
 - `./gradlew decompileServer`: Decompiles the Hytale Server JAR and creates a `-sources.jar`.
+
+## Manifest DSL
+
+Define your pack manifest directly in Gradle with a clean, type-safe DSL:
+
+```kotlin
+hytale {
+    manifest {
+        group = "MyOrganization"
+        name = "MyAwesomePack"
+        version = project.version.toString() // Auto-syncs with project version
+        description = "An incredible pack for Hytale!"
+        
+        // Add authors
+        author {
+            name = "YourName"
+            email = "you@example.com"
+            url = "https://your-website.com"
+        }
+        
+        // Or simply by name
+        author("AnotherContributor")
+        
+        website = "https://my-pack.com"
+        serverVersion = "*"
+        
+        // Dependencies
+        dependency("RequiredPack", "1.0.0")
+        optionalDependency("NiceToHavePack", "*")
+        
+        // Plugin-specific
+        main = "com.example.MyPlugin"
+        includesAssetPack = true
+        disabledByDefault = false
+    }
+}
+```
+
+### Manifest Fields
+
+| Field                  | Type       | Description                                | Required |
+| ---------------------- | ---------- | ------------------------------------------ | -------- |
+| `group`                | String     | Your organization or group name            | Yes      |
+| `name`                 | String     | The name of your Pack                      | Yes      |
+| `version`              | String     | Version number (semantic versioning)       | Yes      |
+| `description`          | String     | A brief description of what your Pack does | Yes      |
+| `authors`              | Author[]   | Array of author information                | Yes      |
+| `website`              | String     | Your website or project page               | No       |
+| `serverVersion`        | String     | Compatible server version (`*` for all)    | Yes      |
+| `dependencies`         | Map        | Packs required for this to work            | No       |
+| `optionalDependencies` | Map        | Packs that enhance but aren't required     | No       |
+| `disabledByDefault`    | Boolean    | Whether Pack loads automatically           | No       |
+| `main`                 | String     | Main plugin class (plugin-specific)        | No       |
+| `includesAssetPack`    | Boolean    | Whether this pack includes assets          | No       |
+
+### Legacy Mode
+
+If you prefer to manage `manifest.json` manually, the plugin will auto-update the `Version` and `IncludesAssetPack` fields during build when:
+- No `manifest {}` DSL block is defined
+- `autoUpdateManifest` is `true` (default)
+- `manifest.json` already exists in `src/main/resources/`
 
 ## Contributing
 Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.

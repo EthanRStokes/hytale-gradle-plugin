@@ -1,7 +1,9 @@
 package fr.smolder.hytale.gradle
 
+import fr.smolder.hytale.gradle.manifest.ManifestDsl
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.RegularFileProperty
@@ -10,27 +12,83 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.JavaExec
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.newInstance
 import org.gradle.api.GradleException
 import org.gradle.plugins.ide.idea.model.IdeaModel
 import java.io.File
 import org.gradle.process.CommandLineArgumentProvider
+import javax.inject.Inject
+import org.gradle.api.model.ObjectFactory
 
-interface HytaleExtension {
-    val hytalePath: Property<String>
-    val patchLine: Property<String>
-    val gameVersion: Property<String>
-    val serverJar: RegularFileProperty
-    val includesAssetPack: Property<Boolean>
-    val loadUserMods: Property<Boolean>
-    val autoUpdateManifest: Property<Boolean>
-    val serverArgs: ListProperty<String>
-    val minMemory: Property<String>
-    val maxMemory: Property<String>
-    val vineflowerVersion: Property<String>
-    val decompileFilter: ListProperty<String>
-    val decompilerHeapSize: Property<String>
-    val useAotCache: Property<Boolean>
-    val includeDecompiledSources: Property<Boolean>
+abstract class HytaleExtension @Inject constructor(
+    private val objects: ObjectFactory,
+    private val project: Project
+) {
+    /** Path to the Hytale installation directory */
+    abstract val hytalePath: Property<String>
+    
+    /** Patch line to use (e.g., "release", "pre-release") */
+    abstract val patchLine: Property<String>
+    
+    /** Game version to use */
+    abstract val gameVersion: Property<String>
+    
+    /** Path to the server JAR */
+    abstract val serverJar: RegularFileProperty
+    
+    /** Whether the project includes an asset pack */
+    abstract val includesAssetPack: Property<Boolean>
+    
+    /** Whether to load user mods from the default mods directory */
+    abstract val loadUserMods: Property<Boolean>
+    
+    /** Whether to auto-update the manifest.json with version info */
+    abstract val autoUpdateManifest: Property<Boolean>
+    
+    /** Arguments to pass to the server */
+    abstract val serverArgs: ListProperty<String>
+    
+    /** Minimum memory for the server JVM */
+    abstract val minMemory: Property<String>
+    
+    /** Maximum memory for the server JVM */
+    abstract val maxMemory: Property<String>
+    
+    /** Vineflower decompiler version */
+    abstract val vineflowerVersion: Property<String>
+    
+    /** Filter patterns for decompilation */
+    abstract val decompileFilter: ListProperty<String>
+    
+    /** Heap size for the decompiler */
+    abstract val decompilerHeapSize: Property<String>
+    
+    /** Whether to use AOT cache for the server */
+    abstract val useAotCache: Property<Boolean>
+    
+    /** Whether to include decompiled sources in the IDE */
+    abstract val includeDecompiledSources: Property<Boolean>
+
+    // Manifest DSL support
+    private var manifestDsl: ManifestDsl? = null
+    
+    /** Access the manifest DSL configuration */
+    val manifest: ManifestDsl
+        get() {
+            if (manifestDsl == null) {
+                manifestDsl = objects.newInstance<ManifestDsl>(project)
+            }
+            return manifestDsl!!
+        }
+    
+    /** Configure the manifest using a DSL block */
+    fun manifest(action: Action<ManifestDsl>) {
+        action.execute(manifest)
+    }
+    
+    /** Check if manifest has been configured */
+    val hasManifest: Boolean
+        get() = manifestDsl != null
 }
 
 class HytaleDevPlugin : Plugin<Project> {
@@ -117,14 +175,46 @@ class HytaleDevPlugin : Plugin<Project> {
     }
 
     private fun configureManifestUpdate(project: Project, extension: HytaleExtension) {
+        val manifestFile = project.file("src/main/resources/manifest.json")
+
+        val generateTask = project.tasks.register("generateManifest") {
+            group = "hytale"
+            description = "Generates manifest.json from the manifest DSL configuration"
+            
+            outputs.file(manifestFile)
+            
+            onlyIf { extension.hasManifest }
+            
+            doLast {
+                val manifest = extension.manifest
+
+                if (!manifest.includesAssetPackProperty.isPresent) {
+                    manifest.includesAssetPack = extension.includesAssetPack.get()
+                }
+                
+                val errors = manifest.validate()
+                if (errors.isNotEmpty()) {
+                    throw GradleException("Manifest validation failed:\n  - ${errors.joinToString("\n  - ")}")
+                }
+                
+                manifestFile.parentFile?.mkdirs()
+                manifestFile.writeText(manifest.toJson())
+                println("Generated manifest.json from DSL configuration")
+            }
+        }
+
+        // legacy manifest.json
         val updateTask = project.tasks.register("updatePluginManifest") {
-            val manifestFile = project.file("src/main/resources/manifest.json")
+            group = "hytale"
+            description = "Updates version and includesAssetPack in an existing manifest.json"
             
             inputs.property("version", project.version)
             inputs.property("includes_pack", extension.includesAssetPack)
             outputs.file(manifestFile)
 
-            onlyIf { extension.autoUpdateManifest.get() }
+            onlyIf { 
+                extension.autoUpdateManifest.get() && !extension.hasManifest && manifestFile.exists()
+            }
 
             doLast {
                 if (!manifestFile.exists()) {
@@ -137,10 +227,12 @@ class HytaleDevPlugin : Plugin<Project> {
                 manifestJson["IncludesAssetPack"] = extension.includesAssetPack.get()
 
                 manifestFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(manifestJson)))
+                println("Updated manifest.json with version ${project.version}")
             }
         }
         
         project.tasks.named("processResources") {
+            dependsOn(generateTask)
             dependsOn(updateTask)
         }
     }
