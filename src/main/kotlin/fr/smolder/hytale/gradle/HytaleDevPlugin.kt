@@ -11,6 +11,7 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.register
 import org.gradle.api.GradleException
+import org.gradle.plugins.ide.idea.model.IdeaModel
 import java.io.File
 import org.gradle.process.CommandLineArgumentProvider
 
@@ -103,11 +104,13 @@ class HytaleDevPlugin : Plugin<Project> {
         configureRunTask(project, extension)
 
         project.afterEvaluate {
-            project.pluginManager.withPlugin("java") {
-                if (extension.includeDecompiledSources.get()) {
-                    val javaExtension = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
-                    val decompiledSourcesDir = project.layout.buildDirectory.dir("decompile/sources")
-                    javaExtension.sourceSets.getByName("main").java.srcDir(decompiledSourcesDir)
+            project.pluginManager.withPlugin("idea") {
+                project.extensions.configure<IdeaModel>("idea") {
+                    if (extension.includeDecompiledSources.get()) {
+                        val decompiledSourcesDir = project.layout.buildDirectory.dir("decompile/sources").get().asFile
+                        module.sourceDirs = module.sourceDirs + decompiledSourcesDir
+                        module.generatedSourceDirs = module.generatedSourceDirs + decompiledSourcesDir
+                    }
                 }
             }
         }
