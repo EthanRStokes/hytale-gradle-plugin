@@ -138,6 +138,7 @@ class HytaleDevPlugin : Plugin<Project> {
 
         configureManifestUpdate(project, extension)
         configureDecompileTask(project, extension, decompiler)
+        configureAuthTask(project)
         configureRunTask(project, extension)
 
         project.afterEvaluate {
@@ -263,6 +264,14 @@ class HytaleDevPlugin : Plugin<Project> {
                if(!extension.serverJar.get().asFile.exists()) {
                    throw GradleException("Hytale Server JAR not found at: ${extension.serverJar.get().asFile.absolutePath}")
                }
+
+               val globalAuth = File(project.gradle.gradleUserHomeDir, "hytale/auth.enc")
+               val localAuth = File(serverRunDir, "auth.enc")
+               if (globalAuth.exists() && !localAuth.exists()) {
+                   globalAuth.copyTo(localAuth)
+                   println("Auto-provisioned auth.enc from global cache")
+               }
+
                minHeapSize = extension.minMemory.get()
                maxHeapSize = extension.maxMemory.get()
                
@@ -370,6 +379,25 @@ class HytaleDevPlugin : Plugin<Project> {
                 println("--------------------------------------------------")
                 println("Done! Sources jar created at: ${sourcesJar.absolutePath}")
                 println("--------------------------------------------------")
+            }
+        }
+    }
+    
+    private fun configureAuthTask(project: Project) {
+        project.tasks.register("saveAuth") {
+            group = "hytale"
+            description = "Saves the local authentication file to the global Gradle cache"
+
+            doLast {
+                val localAuth = project.file("run/auth.enc")
+                if (localAuth.exists()) {
+                    val globalAuth = File(project.gradle.gradleUserHomeDir, "hytale/auth.enc")
+                    globalAuth.parentFile.mkdirs()
+                    localAuth.copyTo(globalAuth, overwrite = true)
+                    println("Saved auth.enc to ${globalAuth.absolutePath}")
+                } else {
+                    println("No local auth.enc found in run directory")
+                }
             }
         }
     }

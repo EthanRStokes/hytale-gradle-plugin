@@ -1,10 +1,12 @@
 # Hytale Gradle Plugin
 ![Java](https://img.shields.io/badge/Java-orange?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Hytale](https://img.shields.io/badge/Hytale-FF7175?style=for-the-badge&logo=anycubic&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.0.8-248cd6?labelColor=&style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.0.9-248cd6?labelColor=&style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-7267db.svg?style=for-the-badge)
 
 A Gradle plugin to streamline Hytale plugin development.
+
+[Usage](#usage) • [Configuration](#configuration) • [Tasks](#tasks) • [Manifest DSL](#manifest-dsl) • [Authentication](#authentication) • [Legacy Mode](#legacy-mode)
 
 ## Usage
 
@@ -26,7 +28,7 @@ In your `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("fr.smolder.hytale.dev") version "0.0.8"
+    id("fr.smolder.hytale.dev") version "0.0.9"
 }
 ```
 
@@ -68,10 +70,11 @@ hytale {
 ```
 
 ### Tasks
-- `./gradlew runServer`: Starts the Hytale server with your plugin loaded.
+- `./gradlew runServer`: Starts the Hytale server with your plugin loaded. Auto-provisions `auth.enc` from the global cache if missing locally.
 - `./gradlew build`: Builds the project and updates/generates the `manifest.json`.
 - `./gradlew generateManifest`: Generates `manifest.json` from the DSL configuration.
 - `./gradlew decompileServer`: Decompiles the Hytale Server JAR and creates a `-sources.jar`.
+- `./gradlew saveAuth`: Saves your current `run/auth.enc` to the global cache (`~/.gradle/hytale/auth.enc`).
 
 ## Manifest DSL
 
@@ -126,6 +129,13 @@ hytale {
 | `disabledByDefault`    | Boolean    | Whether Pack loads automatically           | No       |
 | `main`                 | String     | Main plugin class (plugin-specific)        | No       |
 | `includesAssetPack`    | Boolean    | Whether this pack includes assets          | No       |
+
+## Authentication
+
+The plugin makes it easy to manage Hytale authentication across multiple projects:
+- **Global Cache**: The plugin looks for an `auth.enc` file in `~/.gradle/hytale/auth.enc`.
+- **Auto-Provisioning**: Running `runServer` will automatically copy the global `auth.enc` to your project's `run/` directory if it's missing.
+- **Save Credentials**: Use `./gradlew saveAuth` to save your current project's credentials to the global cache for use in other projects.
 
 ### Legacy Mode
 
