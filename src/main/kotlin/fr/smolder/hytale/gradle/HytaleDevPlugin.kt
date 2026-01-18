@@ -128,28 +128,7 @@ class HytaleDevPlugin : Plugin<Project> {
             File("$home/install/$patch/package/game/$version/Server/HytaleServer.jar")
         })
         extension.serverJar.convention(resolvedServerJar)
-
-        extension.serverArgs.convention(project.provider {
-            val argsList = mutableListOf<String>()
-            argsList.add("--allow-op")
-            argsList.add("--disable-sentry")
-
-            val home = extension.hytalePath.get()
-            val patch = extension.patchLine.get()
-            val version = extension.gameVersion.get()
-            val assetsPath = "$home/install/$patch/package/game/$version/Assets.zip"
-            argsList.add("--assets=$assetsPath")
-
-            if (extension.includesAssetPack.get()) {
-                 val srcMain = project.file("src/main")
-                 argsList.add("--mods=${srcMain.absolutePath}")
-            }
-
-            if (extension.loadUserMods.get()) {
-                argsList.add("--mods=$home/UserData/Mods")
-            }
-            argsList
-        })
+        extension.serverArgs.convention(emptyList())
 
         val decompiler = project.configurations.create("decompiler")
         project.afterEvaluate {
@@ -297,7 +276,29 @@ class HytaleDevPlugin : Plugin<Project> {
             }
 
             argumentProviders.add(CommandLineArgumentProvider {
-                extension.serverArgs.get()
+                val argsList = mutableListOf<String>()
+
+                argsList.add("--allow-op")
+                argsList.add("--disable-sentry")
+
+                val home = extension.hytalePath.get()
+                val patch = extension.patchLine.get()
+                val version = extension.gameVersion.get()
+                val assetsPath = "$home/install/$patch/package/game/$version/Assets.zip"
+                argsList.add("--assets=$assetsPath")
+
+                if (extension.includesAssetPack.get()) {
+                     val srcMain = project.file("src/main")
+                     argsList.add("--mods=${srcMain.absolutePath}")
+                }
+
+                if (extension.loadUserMods.get()) {
+                    argsList.add("--mods=$home/UserData/Mods")
+                }
+
+                argsList.addAll(extension.serverArgs.get())
+                
+                argsList
             })
             
             workingDir = serverRunDir
