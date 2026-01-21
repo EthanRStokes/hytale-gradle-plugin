@@ -52,8 +52,9 @@ hytale {
     // Optional: Override Hytale installation path (defaults to OS-specific standard location)
     // hytalePath.set("...")
 
-    // Optional: patch line (defaults to "release")
-    patchLine.set("release")
+    // Optional: Patch line (defaults to Patchline.RELEASE)
+    patchLine.set(Patchline.RELEASE)       // or Patchline.PRE_RELEASE
+    // patchLine.set(Patchline("custom"))  // custom patch line
 
     // Optional: game version (defaults to "latest")
     gameVersion.set("latest")

@@ -27,8 +27,8 @@ abstract class HytaleExtension @Inject constructor(
     /** Path to the Hytale installation directory */
     abstract val hytalePath: Property<String>
     
-    /** Patch line to use (e.g., "release", "pre-release") */
-    abstract val patchLine: Property<String>
+    /** Patch line to use */
+    abstract val patchLine: Property<Patchline>
     
     /** Game version to use */
     abstract val gameVersion: Property<String>
@@ -111,7 +111,7 @@ class HytaleDevPlugin : Plugin<Project> {
         }
         
         extension.hytalePath.convention(defaultHytaleHome)
-        extension.patchLine.convention("release")
+        extension.patchLine.convention(Patchline.RELEASE)
         extension.gameVersion.convention("latest")
         extension.includesAssetPack.convention(true)
         extension.loadUserMods.convention(false)
@@ -127,7 +127,7 @@ class HytaleDevPlugin : Plugin<Project> {
 
         val resolvedServerJar = project.layout.file(project.provider {
             val home = extension.hytalePath.get()
-            val patch = extension.patchLine.get()
+            val patch = extension.patchLine.get().value
             val version = extension.gameVersion.get()
             File("$home/install/$patch/package/game/$version/Server/HytaleServer.jar")
         })
@@ -327,7 +327,7 @@ class HytaleDevPlugin : Plugin<Project> {
                 argsList.add("--disable-sentry")
 
                 val home = extension.hytalePath.get()
-                val patch = extension.patchLine.get()
+                val patch = extension.patchLine.get().value
                 val version = extension.gameVersion.get()
                 val assetsPath = "$home/install/$patch/package/game/$version/Assets.zip"
                 argsList.add("--assets=$assetsPath")
