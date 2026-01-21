@@ -147,7 +147,7 @@ hytale {
 
 The plugin makes it easy to manage Hytale authentication across multiple projects:
 - **Global Cache**: The plugin looks for an `auth.enc` file in `~/.gradle/hytale/auth.enc`.
-- **Auto-Provisioning**: Running `runServer` will automatically copy the global `auth.enc` to your project's `run/` directory if it's missing.
+- **Auto-Provisioning**: Running `runServer` automatically copies the global `auth.enc` to your project's `run/` directory and ensures `config.json` has the `AuthCredentialStore` section configured.
 - **Save Credentials**: Use `./gradlew saveAuth` to save your current project's credentials to the global cache for use in other projects.
 
 ### Legacy Mode

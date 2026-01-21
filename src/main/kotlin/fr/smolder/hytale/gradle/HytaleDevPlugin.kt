@@ -280,6 +280,34 @@ class HytaleDevPlugin : Plugin<Project> {
                    println("Auto-provisioned auth.enc from global cache")
                }
 
+               // insert AuthCredentialStore section in config.json
+               if (localAuth.exists()) {
+                   val configFile = File(serverRunDir, "config.json")
+                   val authConfig = mapOf(
+                       "Type" to "Encrypted",
+                       "Path" to "auth.enc"
+                   )
+
+                   if (configFile.exists()) {
+                       @Suppress("UNCHECKED_CAST")
+                       val config = JsonSlurper().parseText(configFile.readText()) as MutableMap<String, Any?>
+                       val existingAuth = config["AuthCredentialStore"] as? Map<*, *>
+
+                       if (existingAuth == null || existingAuth["Type"] != "Encrypted") {
+                           config["AuthCredentialStore"] = authConfig
+                           configFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(config)))
+                           println("Updated config.json with AuthCredentialStore configuration")
+                       }
+                   } else {
+                       // very very very minimal config.json with auth configuration
+                       val defaultConfig = mapOf(
+                           "AuthCredentialStore" to authConfig
+                       )
+                       configFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(defaultConfig)))
+                       println("Created config.json with AuthCredentialStore configuration")
+                   }
+               }
+
                minHeapSize = extension.minMemory.get()
                maxHeapSize = extension.maxMemory.get()
                
