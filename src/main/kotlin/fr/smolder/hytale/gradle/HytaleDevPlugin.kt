@@ -235,6 +235,10 @@ class HytaleDevPlugin : Plugin<Project> {
                 val javaExtension = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
                 val mainSourceSet = javaExtension.sourceSets.getByName("main")
                 mainSourceSet.resources.srcDir(generatedResourcesDir)
+
+                project.tasks.matching { it.name == "sourcesJar" }.configureEach {
+                    dependsOn(generateTask)
+                }
             }
         }
 
