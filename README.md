@@ -28,8 +28,8 @@ In your `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("fr.smolder.hytale.dev") version "0.0.10"
     java // or java-library, etc.
+    id("fr.smolder.hytale.dev") version "0.0.10"
 }
 ```
 
