@@ -29,8 +29,11 @@ In your `build.gradle.kts`:
 ```kotlin
 plugins {
     id("fr.smolder.hytale.dev") version "0.0.10"
+    java // or java-library, etc.
 }
 ```
+
+> **Note**: This plugin requires the Java plugin (or any plugin that applies it, such as `java-library` for example).
 
 ### 3. Project Repositories
 Ensure your project has `mavenCentral()` in its repositories (required for the Vineflower decompiler):
