@@ -151,7 +151,7 @@ class HytaleDevPlugin : Plugin<Project> {
                 }
             }
 
-            if (extension.earlyPlugin.get()) {
+            if (extension.acceptEarlyPlugins.get()) {
                 val javaExtension = project.extensions.getByType(org.gradle.api.plugins.JavaPluginExtension::class.java)
                 val mainSourceSet = javaExtension.sourceSets.getByName("main")
 
